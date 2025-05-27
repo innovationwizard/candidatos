@@ -1,10 +1,12 @@
 from flask import Flask, request, jsonify, session, send_file
 from flask_cors import CORS
-import pymysql
+import psycopg2
+import psycopg2.extras
 import bcrypt
 import secrets
 import logging
 import os
+from urllib.parse import urlparse
 
 # Initialize Flask
 app = Flask(__name__)
@@ -22,24 +24,37 @@ CORS(app, supports_credentials=True, origins=[
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(message)s')
 
-# MariaDB Configuration from Environment Variables
-DB_CONFIG = {
-    'host': os.getenv("DB_HOST", "localhost"),
-    'user': os.getenv("DB_USER"),
-    'password': os.getenv("DB_PASSWORD"),
-    'database': os.getenv("DB_NAME"),
-    'charset': 'utf8mb4'
-}
+# PostgreSQL Configuration from Environment Variables
+DATABASE_URL = os.getenv("postgresql://postgres:AfzCdlJXGrviGQPnAEMmSOhuNFrCNHke@gondola.proxy.rlwy.net:38834/railway")
+if DATABASE_URL:
+    url = urlparse(DATABASE_URL)
+    DB_CONFIG = {
+        'host': url.hostname,
+        'port': url.port,
+        'user': url.username,
+        'password': url.password,
+        'dbname': url.path[1:],
+        'sslmode': 'require'
+    }
+else:
+    DB_CONFIG = {
+        'host': os.getenv("DB_HOST", "localhost"),
+        'user': os.getenv("DB_USER"),
+        'password': os.getenv("DB_PASSWORD"),
+        'dbname': os.getenv("DB_NAME"),
+        'port': os.getenv("DB_PORT", "5432"),
+        'sslmode': 'require'
+    }
 
-# Create MariaDB connection
+# Create PostgreSQL connection
 def get_db():
-    conn = pymysql.connect(**DB_CONFIG)
+    conn = psycopg2.connect(**DB_CONFIG)
     return conn
 
-# Routes (updated for MariaDB)
+# Routes
 @app.route('/')
 def health_check():
-    return "API is live", 200  # ✅ This works
+    return "API is live", 200
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -57,28 +72,23 @@ def login():
 
         logging.info(f"Login attempt: username={username}")
 
-        connection = pymysql.connect(
-            host=os.getenv("DB_HOST"),
-            user=os.getenv("DB_USER"),
-            password=os.getenv("DB_PASS"),
-            db=os.getenv("DB_NAME"),
-            cursorclass=pymysql.cursors.DictCursor
-        )
-
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT password FROM users WHERE username = %s", (username,))
-            user = cursor.fetchone()
+        conn = get_db()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor.execute('SELECT password FROM users WHERE username = %s', (username,))
+        user = cursor.fetchone()
 
         if user and bcrypt.checkpw(password.encode('utf-8'), user['password'].encode('utf-8')):
             session['username'] = username
+            conn.commit()
+            conn.close()
             return jsonify(success=True)
 
+        conn.close()
         return jsonify(success=False, message="Invalid credentials"), 401
 
     except Exception as e:
         logging.exception("Login route failed")
         return jsonify(success=False, message="Server error"), 500
-
 
 @app.route('/logout', methods=['POST'])
 def logout():
@@ -91,8 +101,8 @@ def get_departments():
         return jsonify({'error': 'ACCESS DENIED'}), 401
 
     conn = get_db()
-    cursor = conn.cursor(pymysql.cursors.DictCursor)
-    cursor.execute('SELECT DISTINCT dept_name FROM UBIS ORDER BY dept_name')
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cursor.execute('SELECT DISTINCT dept_name FROM ubis ORDER BY dept_name')
     departments = [row['dept_name'] for row in cursor.fetchall()]
     conn.close()
     return jsonify(departments)
@@ -104,8 +114,8 @@ def get_municipalities():
 
     dept_name = request.args.get('dept_name')
     conn = get_db()
-    cursor = conn.cursor(pymysql.cursors.DictCursor)
-    cursor.execute('SELECT DISTINCT muni_name FROM UBIS WHERE dept_name = %s ORDER BY muni_name', (dept_name,))
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cursor.execute('SELECT DISTINCT muni_name FROM ubis WHERE dept_name = %s ORDER BY muni_name', (dept_name,))
     municipalities = [row['muni_name'] for row in cursor.fetchall()]
     conn.close()
     return jsonify(municipalities)
@@ -116,9 +126,9 @@ def get_parties():
         return jsonify({'error': 'ACCESS DENIED'}), 401
 
     conn = get_db()
-    cursor = conn.cursor(pymysql.cursors.DictCursor)
-    cursor.execute('SELECT part_name FROM PART ORDER BY part_name')
-    parties = [row['part_name'] for row in cursor.fetchall()]
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cursor.execute('SELECT partido_name FROM partido ORDER BY partido_name')
+    parties = [row['partido_name'] for row in cursor.fetchall()]
     conn.close()
     return jsonify(parties)
 
@@ -136,18 +146,81 @@ def get_results():
         return jsonify({'error': 'ERROR'}), 400
 
     conn = get_db()
-    cursor = conn.cursor(pymysql.cursors.DictCursor)
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
-    cursor.execute('SELECT mesa FROM UBIS WHERE dept_name = %s AND muni_name = %s', (dept_name, muni_name))
+    # Get mesas for the department and municipality
+    cursor.execute('SELECT mesa FROM ubis WHERE dept_name = %s AND muni_name = %s', (dept_name, muni_name))
     mesa_list = [row['mesa'] for row in cursor.fetchall()]
     if not mesa_list:
         conn.close()
         return jsonify({'error': 'NO HAY MESAS'}), 404
-    placeholder = ','.join('%s' for _ in mesa_list)
 
-    cursor.execute('SELECT part_id FROM PART WHERE part_name = %s', (part_name,))
-    part_id = cursor.fetchone()
-    if not part_id:
+    # Get partido_id for the party
+    cursor.execute('SELECT partido_id FROM partido WHERE partido_name = %s', (part_name,))
+    party = cursor.fetchone()
+    if not party:
         conn.close()
         return jsonify({'error': 'NO HAY PARTIDO'}), 404
-    part_id = part
+    partido_id = party['partido_id']
+
+    # Get vote counts from voto table
+    placeholder = ','.join('%s' for _ in mesa_list)
+    query = f"""
+        SELECT v.mesa, v.tipo, v.voto
+        FROM voto v
+        WHERE v.mesa IN ({placeholder}) AND v.partido_id = %s
+    """
+    cursor.execute(query, (*mesa_list, partido_id))
+    results = [
+        {'mesa': row['mesa'], 'tipo': row['tipo'], 'votos': row['voto']}
+        for row in cursor.fetchall()
+    ]
+
+    # Get metadata for additional context (e.g., validos, nulos)
+    cursor.execute(f"""
+        SELECT m.mesa, m.validos, m.nulos, m.en_blanco, m.emitidos
+        FROM metadata m
+        WHERE m.mesa IN ({placeholder})
+    """, mesa_list)
+    metadata = [
+        {
+            'mesa': row['mesa'],
+            'validos': row['validos'],
+            'nulos': row['nulos'],
+            'en_blanco': row['en_blanco'],
+            'emitidos': row['emitidos']
+        }
+        for row in cursor.fetchall()
+    ]
+
+    conn.close()
+    return jsonify({
+        'partido': part_name,
+        'dept_name': dept_name,
+        'muni_name': muni_name,
+        'results': results,
+        'metadata': metadata
+    })
+
+@app.route('/schema', methods=['GET'])
+def get_schema():
+    if 'username' not in session:
+        return jsonify({'error': 'ACCESS DENIED'}), 401
+    try:
+        conn = get_db()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
+        tables = [row['table_name'] for row in cursor.fetchall()]
+        schema = {}
+        for table in tables:
+            cursor.execute("""
+                SELECT column_name, data_type, is_nullable, column_default
+                FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = %s
+            """, (table,))
+            schema[table] = [dict(row) for row in cursor.fetchall()]
+        conn.close()
+        return jsonify(schema)
+    except Exception as e:
+        logging.exception("Schema route failed")
+        return jsonify({'error': str(e)}), 500
