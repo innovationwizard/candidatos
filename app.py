@@ -43,28 +43,42 @@ def health_check():
 
 @app.route('/login', methods=['POST'])
 def login():
-    data = request.json
-    username = data.get('username')
-    password = data.get('password')
-    password_is = 'not empty' if password else 'empty'
+    try:
+        data = request.get_json()
+        if data is None:
+            logging.warning("Login request missing or invalid JSON")
+            return jsonify(success=False, message="Missing JSON body"), 400
 
-    if not username or not password:
-        logging.info(f"Login Input: username={username}, password={password_is} - FAIL: Missing credentials")
-        return jsonify({'success': False, 'message': 'ACCESS DENIED'}), 401
+        username = data.get('username')
+        password = data.get('password')
 
-    conn = get_db()
-    cursor = conn.cursor(pymysql.cursors.DictCursor)
-    cursor.execute('SELECT password FROM users WHERE username = %s', (username,))
-    user = cursor.fetchone()
-    conn.close()
+        if not username or not password:
+            return jsonify(success=False, message="Missing username or password"), 400
 
-    if user and bcrypt.checkpw(password.encode('utf-8'), user['password'].encode('utf-8')):
-        session['username'] = username
-        logging.info(f"Login Input: username={username}, password={password_is} - OK: Login successful")
-        return jsonify({'success': True})
-    else:
-        logging.info(f"Login Input: username={username}, password={password_is} - FAIL: Invalid credentials")
-        return jsonify({'success': False, 'message': 'ACCESS DENIED'}), 401
+        logging.info(f"Login attempt: username={username}")
+
+        connection = pymysql.connect(
+            host=os.getenv("DB_HOST"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASS"),
+            db=os.getenv("DB_NAME"),
+            cursorclass=pymysql.cursors.DictCursor
+        )
+
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT password FROM users WHERE username = %s", (username,))
+            user = cursor.fetchone()
+
+        if user and bcrypt.checkpw(password.encode('utf-8'), user['password'].encode('utf-8')):
+            session['username'] = username
+            return jsonify(success=True)
+
+        return jsonify(success=False, message="Invalid credentials"), 401
+
+    except Exception as e:
+        logging.exception("Login route failed")
+        return jsonify(success=False, message="Server error"), 500
+
 
 @app.route('/logout', methods=['POST'])
 def logout():
