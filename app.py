@@ -38,8 +38,8 @@ def get_db():
 
 # Routes (updated for MariaDB)
 @app.route('/')
-def serve_index():
-    return render_template('index.html')
+def health_check():
+    return "API is live", 200  # ✅ This works
 
 @app.route('/login', methods=['POST'])
 def login():
