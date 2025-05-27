@@ -39,7 +39,7 @@ def get_db():
 # Routes (updated for MariaDB)
 @app.route('/')
 def serve_index():
-    return send_file('index.html')
+    return render_template('index.html')
 
 @app.route('/login', methods=['POST'])
 def login():
