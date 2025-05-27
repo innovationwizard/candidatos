@@ -14,8 +14,8 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'None'
 
 # CORS for Namecheap frontend
 CORS(app, supports_credentials=True, origins=[
-    'https://ndor.co/mb',
-    'https://www.ndor.co/mb'
+    'https://ndor.co',
+    'https://www.ndor.co'
 ])
 
 # Logging
