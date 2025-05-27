@@ -45,6 +45,15 @@ else:
         'port': os.getenv("5432"),
         'sslmode': 'require'
     }
+    if not all([DB_CONFIG['host'], DB_CONFIG['user'], DB_CONFIG['password'], DB_CONFIG['dbname']]):
+        logging.error("Missing required DB environment variables")
+        raise ValueError("Missing required DB environment variables")
+
+# Create PostgreSQL connection
+def get_db():
+    logging.info(f"Connecting to database with config: {DB_CONFIG}")
+    conn = psycopg2.connect(**DB_CONFIG)
+    return conn
 
 # Create PostgreSQL connection
 def get_db():
