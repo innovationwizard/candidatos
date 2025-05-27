@@ -25,7 +25,7 @@ logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(message)s')
 
 # PostgreSQL Configuration from Environment Variables
-DATABASE_URL = os.getenv("postgresql://postgres:AfzCdlJXGrviGQPnAEMmSOhuNFrCNHke@gondola.proxy.rlwy.net:38834/railway")
+DATABASE_URL = os.getenv("DATABASE_URL")
 if DATABASE_URL:
     url = urlparse(DATABASE_URL)
     DB_CONFIG = {
