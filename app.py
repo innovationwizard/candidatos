@@ -19,7 +19,7 @@ CORS(app, supports_credentials=True, origins=[
 ])
 
 # Logging
-logging.basicConfig(filename='users_are_mean.txt', level=logging.INFO,
+logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(message)s')
 
 # MariaDB Configuration from Environment Variables
