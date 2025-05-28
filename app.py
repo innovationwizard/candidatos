@@ -139,70 +139,113 @@ def get_parties():
 
 @app.route('/results', methods=['GET'])
 def get_results():
-    # if 'username' not in session:
-    #    return jsonify({'error': 'ACCESS DENIED'}), 401
+    # Check for session
+    if 'username' not in session:
+        return jsonify({'error': 'ACCESS DENIED'}), 401
 
+    # Fetch parameters from request
     dept_name = request.args.get('dept_name')
     muni_name = request.args.get('muni_name')
     part_name = request.args.get('part_name')
 
+    # Validate if NOT all parameters are provided
     if not all([dept_name, muni_name, part_name]):
         logging.info(f"Input: dept_name={dept_name}, muni_name={muni_name}, part_name={part_name} - FAIL: Missing parameters")
         return jsonify({'error': 'ERROR'}), 400
 
+    # Ask the db
     conn = get_db()
     cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
-    # Get mesas for the department and municipality
-    cursor.execute('SELECT mesa FROM ubis WHERE dept_name = %s AND muni_name = %s', (dept_name, muni_name))
+    # 1. For list of mesas in dept AND muni
+    cursor.execute('SELECT mesa FROM UBIS WHERE dept_name = %s AND muni_name = %s', (dept_name, muni_name))
     mesa_list = [row['mesa'] for row in cursor.fetchall()]
+
     if not mesa_list:
         conn.close()
         return jsonify({'error': 'NO HAY MESAS'}), 404
 
-    # Get partido_id for the party
-    cursor.execute('SELECT partido_id FROM partido WHERE partido_name = %s', (part_name,))
-    party = cursor.fetchone()
-    if not party:
+    # Use dynamic placeholder for variable number of mesas
+    placeholder = ','.join(['%s'] * len(mesa_list))
+
+    # 2. For list of party id, provided party name
+    cursor.execute('SELECT part_id FROM PART WHERE part_name = %s', (part_name,))
+    part_id_row = cursor.fetchone()
+
+    if not part_id_row:
         conn.close()
         return jsonify({'error': 'NO HAY PARTIDO'}), 404
-    partido_id = party['partido_id']
 
-    # Get vote counts from voto table
-    placeholder = ','.join('%s' for _ in mesa_list)
-    query = f"""
-        SELECT v.mesa, v.tipo, v.voto
-        FROM voto v
-        WHERE v.mesa IN ({placeholder}) AND v.partido_id = %s
-    """
-    cursor.execute(query, (*mesa_list, partido_id))
-    results = [
-        {'mesa': row['mesa'], 'tipo': row['tipo'], 'votos': row['voto']}
-        for row in cursor.fetchall()
-    ]
+    part_id = part_id_row['part_id']
 
-    # Get metadata for additional context (e.g., validos, nulos)
-    cursor.execute(f"""
-        SELECT m.mesa, m.validos, m.nulos, m.en_blanco, m.emitidos
-        FROM metadata m
-        WHERE m.mesa IN ({placeholder})
-    """, mesa_list)
-    metadata = [
-        {
-            'mesa': row['mesa'],
-            'validos': row['validos'],
-            'nulos': row['nulos'],
-            'en_blanco': row['en_blanco'],
-            'emitidos': row['emitidos']
-        }
-        for row in cursor.fetchall()
-    ]
+    results = {
+        'MUNI': {'empadronados': 0, 'votos_totales': 0, 'votos_recibidos': 0},
+        'D_LN': {'empadronados': 0, 'votos_totales': 0, 'votos_recibidos': 0},
+        'D_DI': {'empadronados': 0, 'votos_totales': 0, 'votos_recibidos': 0},
+        'D_PA': {'empadronados': 0, 'votos_totales': 0, 'votos_recibidos': 0},
+        'PRES': {'empadronados': 0, 'votos_totales': 0, 'votos_recibidos': 0},
+        'TEAM': {'empadronados': 0, 'votos_totales': 0, 'votos_recibidos': 0}
+    }
 
-    conn.close()
-    return jsonify({
-        'partido': part_name,
+    types = {
+        'MUNI': 'CORPORACION_MUNICIPAL',
+        'D_LN': 'DIPUTADOS_NACIONAL',
+        'D_DI': 'DIPUTADOS_DISTRITAL',
+        'D_PA': 'PARLAMENTO_CENTROAMERICANO',
+        'PRES': 'PRESIDENTE'
+    }
+
+    for tipo_key, tipo in types.items():
+        cursor.execute(
+            f'SELECT COALESCE(SUM(padron), 0) as padron, COALESCE(SUM(validos), 0) as validos '
+            f'FROM META WHERE tipo = %s AND mesa IN ({placeholder})',
+            [tipo] + mesa_list
+        )
+        row = cursor.fetchone()
+        results[tipo_key]['empadronados'] = row['padron']
+        results[tipo_key]['votos_totales'] = row['validos']
+
+    for tipo_key, tipo in types.items():
+        cursor.execute(
+            f'SELECT COALESCE(SUM(voto), 0) as votos '
+            f'FROM VOTO WHERE tipo = %s AND part_id = %s AND mesa IN ({placeholder})',
+            [tipo, part_id] + mesa_list
+        )
+        row = cursor.fetchone()
+        results[tipo_key]['votos_recibidos'] = row['votos']
+
+    cursor.execute(
+        f'SELECT COALESCE(SUM(voto), 0) as votos '
+        f'FROM VOTO '
+        f'WHERE tipo IN (%s, %s, %s, %s) AND part_id = %s AND mesa IN ({placeholder})',
+        ['DIPUTADOS_NACIONAL', 'PARLAMENTO_CENTROAMERICANO', 'PRESIDENTE', 'DIPUTADOS_DISTRITAL', part_id] + mesa_list
+    )
+    row = cursor.fetchone()
+    results['TEAM']['votos_recibidos'] = row['votos']
+    results['TEAM']['empadronados'] = sum(results[b]['empadronados'] for b in ['D_LN', 'D_DI', 'D_PA', 'PRES'])
+    results['TEAM']['votos_totales'] = sum(results[b]['votos_totales'] for b in ['D_LN', 'D_DI', 'D_PA', 'PRES'])
+
+    for tipo_key in results:
+        vt = results[tipo_key].get('votos_totales', 0)
+        vr = results[tipo_key].get('votos_recibidos', 0)
+        em = results[tipo_key].get('empadronados', 0)
+        participacion = (vr / vt * 100) if vt > 0 else 0
+        eficiencia = (vr / em * 100) if em > 0 else 0
+        results[tipo_key]['participacion'] = participacion
+        results[tipo_key]['eficiencia'] = eficiencia
+        print(f"{tipo_key} - Votos recibidos: {vr}, Votos totales: {vt}, Empadronados: {em}, Participacion: {participacion}%, Eficiencia: {eficiencia}%")
+
+    print("Response JSON:", jsonify({
         'dept_name': dept_name,
         'muni_name': muni_name,
-        'results': results,
-        'metadata': metadata
+        'part_name': part_name,
+        'results': results
+    }).get_data(as_text=True))
+
+    logging.info(f"Input: dept_name={dept_name}, muni_name={muni_name}, part_name={part_name} - Results generated successfully!")
+    return jsonify({
+        'dept_name': dept_name,
+        'muni_name': muni_name,
+        'part_name': part_name,
+        'results': results
     })
