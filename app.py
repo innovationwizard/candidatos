@@ -198,7 +198,7 @@ def get_results():
     for tipo_key, tipo in types.items():
         cursor.execute(
             f'SELECT COALESCE(SUM(padron), 0) as padron, COALESCE(SUM(validos), 0) as validos '
-            f'FROM META WHERE tipo = %s AND mesa IN ({placeholder})',
+            f'FROM METADATA WHERE tipo = %s AND mesa IN ({placeholder})',
             [tipo] + mesa_list
         )
         row = cursor.fetchone()
