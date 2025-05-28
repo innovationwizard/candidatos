@@ -140,8 +140,8 @@ def get_parties():
 @app.route('/results', methods=['GET'])
 def get_results():
     # Check for session
-    if 'username' not in session:
-        return jsonify({'error': 'ACCESS DENIED'}), 401
+    # if 'username' not in session:
+    #    return jsonify({'error': 'ACCESS DENIED'}), 401
 
     # Fetch parameters from request
     dept_name = request.args.get('dept_name')
@@ -169,7 +169,7 @@ def get_results():
     placeholder = ','.join(['%s'] * len(mesa_list))
 
     # 2. For list of party id, provided party name
-    cursor.execute('SELECT part_id FROM PART WHERE part_name = %s', (part_name,))
+    cursor.execute('SELECT partido_id FROM PARTIDO WHERE partido_name = %s', (part_name,))
     part_id_row = cursor.fetchone()
 
     if not part_id_row:
@@ -208,7 +208,7 @@ def get_results():
     for tipo_key, tipo in types.items():
         cursor.execute(
             f'SELECT COALESCE(SUM(voto), 0) as votos '
-            f'FROM VOTO WHERE tipo = %s AND part_id = %s AND mesa IN ({placeholder})',
+            f'FROM VOTO WHERE tipo = %s AND partido_id = %s AND mesa IN ({placeholder})',
             [tipo, part_id] + mesa_list
         )
         row = cursor.fetchone()
@@ -217,7 +217,7 @@ def get_results():
     cursor.execute(
         f'SELECT COALESCE(SUM(voto), 0) as votos '
         f'FROM VOTO '
-        f'WHERE tipo IN (%s, %s, %s, %s) AND part_id = %s AND mesa IN ({placeholder})',
+        f'WHERE tipo IN (%s, %s, %s, %s) AND partido_id = %s AND mesa IN ({placeholder})',
         ['DIPUTADOS_NACIONAL', 'PARLAMENTO_CENTROAMERICANO', 'PRESIDENTE', 'DIPUTADOS_DISTRITAL', part_id] + mesa_list
     )
     row = cursor.fetchone()
