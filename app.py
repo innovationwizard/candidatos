@@ -144,10 +144,10 @@ def get_results():
 
     dept_name = request.args.get('dept_name')
     muni_name = request.args.get('muni_name')
-    part_name = request.args.get('partido_name')
+    part_name = request.args.get('part_name')
 
     if not all([dept_name, muni_name, part_name]):
-        logging.info(f"Input: dept_name={dept_name}, muni_name={muni_name}, partido_name={part_name} - FAIL: Missing parameters")
+        logging.info(f"Input: dept_name={dept_name}, muni_name={muni_name}, part_name={part_name} - FAIL: Missing parameters")
         return jsonify({'error': 'ERROR'}), 400
 
     conn = get_db()
