@@ -176,7 +176,7 @@ def get_results():
         conn.close()
         return jsonify({'error': 'NO HAY PARTIDO'}), 404
 
-    part_id = part_id_row['part_id']
+    part_id = part_id_row['partido_id']
 
     results = {
         'MUNI': {'empadronados': 0, 'votos_totales': 0, 'votos_recibidos': 0},
