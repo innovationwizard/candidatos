@@ -59,7 +59,7 @@ def get_db():
 # Routes
 @app.route('/')
 def health_check():
-    return "API is live", 200
+    return "It's alive!", 200
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -102,8 +102,8 @@ def logout():
 
 @app.route('/departments', methods=['GET'])
 def get_departments():
-    if 'username' not in session:
-        return jsonify({'error': 'ACCESS DENIED'}), 401
+    # if 'username' not in session:
+    #    return jsonify({'error': 'ACCESS DENIED'}), 401
 
     conn = get_db()
     cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -114,8 +114,8 @@ def get_departments():
 
 @app.route('/municipalities', methods=['GET'])
 def get_municipalities():
-    if 'username' not in session:
-        return jsonify({'error': 'ACCESS DENIED'}), 401
+    # if 'username' not in session:
+    #    return jsonify({'error': 'ACCESS DENIED'}), 401
 
     dept_name = request.args.get('dept_name')
     conn = get_db()
@@ -127,8 +127,8 @@ def get_municipalities():
 
 @app.route('/parties', methods=['GET'])
 def get_parties():
-    if 'username' not in session:
-        return jsonify({'error': 'ACCESS DENIED'}), 401
+    # if 'username' not in session:
+    #    return jsonify({'error': 'ACCESS DENIED'}), 401
 
     conn = get_db()
     cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
@@ -139,8 +139,8 @@ def get_parties():
 
 @app.route('/results', methods=['GET'])
 def get_results():
-    if 'username' not in session:
-        return jsonify({'error': 'ACCESS DENIED'}), 401
+    # if 'username' not in session:
+    #    return jsonify({'error': 'ACCESS DENIED'}), 401
 
     dept_name = request.args.get('dept_name')
     muni_name = request.args.get('muni_name')
@@ -206,26 +206,3 @@ def get_results():
         'results': results,
         'metadata': metadata
     })
-
-@app.route('/schema', methods=['GET'])
-def get_schema():
-    if 'username' not in session:
-        return jsonify({'error': 'ACCESS DENIED'}), 401
-    try:
-        conn = get_db()
-        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        cursor.execute("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'")
-        tables = [row['table_name'] for row in cursor.fetchall()]
-        schema = {}
-        for table in tables:
-            cursor.execute("""
-                SELECT column_name, data_type, is_nullable, column_default
-                FROM information_schema.columns
-                WHERE table_schema = 'public' AND table_name = %s
-            """, (table,))
-            schema[table] = [dict(row) for row in cursor.fetchall()]
-        conn.close()
-        return jsonify(schema)
-    except Exception as e:
-        logging.exception("Schema route failed")
-        return jsonify({'error': str(e)}), 500
