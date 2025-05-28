@@ -18,7 +18,7 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'None'
 CORS(app, supports_credentials=True, origins=[
     'https://ndor.co',
     'https://www.ndor.co'
-])
+], methods=['GET', 'POST', 'OPTIONS'], allow_headers=['Content-Type'])
 
 # Logging
 logging.basicConfig(level=logging.INFO,
@@ -27,6 +27,7 @@ logging.basicConfig(level=logging.INFO,
 # PostgreSQL Configuration from Environment Variables
 DATABASE_URL = os.getenv("DATABASE_URL")
 if DATABASE_URL:
+    logging.info(f"Using DATABASE_URL: {DATABASE_URL[:50]}...")
     url = urlparse(DATABASE_URL)
     DB_CONFIG = {
         'host': url.hostname,
@@ -52,11 +53,6 @@ else:
 # Create PostgreSQL connection
 def get_db():
     logging.info(f"Connecting to database with config: {DB_CONFIG}")
-    conn = psycopg2.connect(**DB_CONFIG)
-    return conn
-
-# Create PostgreSQL connection
-def get_db():
     conn = psycopg2.connect(**DB_CONFIG)
     return conn
 
