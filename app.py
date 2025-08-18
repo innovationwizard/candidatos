@@ -7,6 +7,10 @@ import secrets
 import logging
 import os
 from urllib.parse import urlparse
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Initialize Flask
 app = Flask(__name__)
@@ -14,10 +18,10 @@ app.secret_key = os.getenv("SECRET_KEY", secrets.token_hex(32))
 app.config['SESSION_COOKIE_SECURE'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'None'
 
-# CORS for Namecheap frontend
+# CORS for candidatos.app frontend
 CORS(app, supports_credentials=True, origins=[
-    'https://ndor.co',
-    'https://www.ndor.co'
+    'https://candidatos.app',
+    'https://www.candidatos.app'
 ], methods=['GET', 'POST', 'OPTIONS'], allow_headers=['Content-Type'])
 
 # Logging
@@ -249,3 +253,6 @@ def get_results():
         'part_name': part_name,
         'results': results
     })
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5001)
