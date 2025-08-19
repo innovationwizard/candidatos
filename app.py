@@ -65,6 +65,14 @@ def get_db():
 def health_check():
     return "It's alive!", 200
 
+@app.route('/favicon.ico')
+def favicon():
+    return send_file('static/favicon.ico', mimetype='image/vnd.microsoft.icon')
+
+@app.route('/logo.png')
+def logo():
+    return send_file('static/candidatos_logo.png', mimetype='image/png')
+
 @app.route('/login', methods=['POST'])
 def login():
     try:
