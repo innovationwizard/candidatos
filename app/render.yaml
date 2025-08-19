@@ -1,0 +1,20 @@
+
+services:
+  - type: web
+    name: election-api
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn "pro_app.wsgi:app"
+    autoDeploy: true
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: SECRET_KEY
+        generateValue: true
+      - key: SESSION_COOKIE_SECURE
+        value: "true"
+      - key: DATABASE_URL
+        sync: false  # set this in the dashboard (use your Render Postgres URL)
+      - key: CORS_ALLOW_ORIGINS
+        value: "*"  # or set to your frontend origin

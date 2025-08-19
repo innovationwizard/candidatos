@@ -1,0 +1,275 @@
+<!DOCTYPE html> 
+<html lang="en"> 
+<head>
+    <meta charset="UTF-8"> 
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+    <link href="/static/favicon.ico" rel="icon"> 
+    <link href="/static/styles.css" rel="stylesheet"> 
+    <title>SYSTEM</title> 
+</head>
+<body>
+    <div class="container">
+        <h1>CYBERDYNE SYSTEMS CORPORATION</h1> 
+        <div id="loginSection" class="login">
+            <h2></h2> 
+            <span></span> <input type="text" id="usernameInput" placeholder="Username"> 
+            <span></span> <input type="password" id="passwordInput" placeholder="Password"> 
+            <button onclick="login()">Login</button> 
+            <p id="loginError" class="error"></p>  
+        </div>
+
+
+
+        <div id="filtersSection" class="filters" style="display: none;"> 
+            <h2>Filtros</h2> 
+            <p><span></span> <br> 
+
+                <select id="deptSelect" onchange="fetchMunicipalities()">
+                    <option value="">Departamento</option></select></p> 
+            <p><span></span> <br> 
+                <select id="muniSelect">
+                    <option value="">Municipalidad</option></select></p> 
+            <p><span></span> <br> 
+                <select id="partSelect">
+                    <option value="">Partido</option></select></p> 
+
+
+            <p><button onclick="fetchResults()">Ejecutar</button></p> 
+            <p><button onclick="resetFilters()">Limpiar</button></p> 
+
+        </div>
+        <div id="results" class="results"></div> 
+        <div id="logout" class="logout" style="display: none;">  
+            <button onclick="logout()">Salir</button> 
+        </div>
+    </div>
+    <script> 
+        const apiUrl = '';              
+        let isLoggedIn = false;           
+
+        async function clearSession() {
+            try {
+                const response = await fetch(`${apiUrl}/logout`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                console.log('Clear session response:', data);
+            } catch (error) {
+                console.error('Error clearing session:', error);
+            }
+        }
+
+        async function login() {
+            console.log('Login function called');
+            const usernameInput = document.getElementById('usernameInput');
+            const passwordInput = document.getElementById('passwordInput');
+            const loginError = document.getElementById('loginError');
+            const loginSection = document.getElementById('loginSection');
+
+            if (!usernameInput || !passwordInput || !loginError || !loginSection) {
+                console.error('Login inputs not found in DOM');
+                if (loginError) loginError.textContent = 'Access denied';
+                return;
+            }
+
+            const username = usernameInput.value;
+            const password = passwordInput.value;
+            if (!username || !password) {
+                loginError.textContent = 'Access denied';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${apiUrl}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password }),
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                console.log('Login response:', data);
+                if (data.success) {
+                    isLoggedIn = true;
+                    loginSection.style.display = 'none';                                // Hide login form
+                    document.getElementById('filtersSection').style.display = 'block';  // Show filters form, populate filters
+                    document.getElementById('logout').style.display = 'block';          // Show logout button
+                    fetchDepartments();
+                    fetchParties();
+                } else {
+                    loginError.textContent = data.message || 'Access denied';
+                }
+            } catch (error) {
+                console.error('Login fetch error:', error);
+                loginError.textContent = 'Access denied';
+            }
+        }
+
+        async function logout() {
+            try {
+                const response = await fetch(`${apiUrl}/logout`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                console.log('Logout response:', data);
+                if (data.success) {
+                    isLoggedIn = false;
+                    document.getElementById('filtersSection').style.display = 'none';
+                    document.getElementById('results').innerHTML = '';
+                    document.getElementById('loginSection').style.display = 'block';
+                    document.getElementById('logout').style.display = 'none';
+                    document.getElementById('username').value = '';
+                    document.getElementById('password').value = '';
+                    document.getElementById('loginError').textContent = '';
+                    document.getElementById('departamento').value = '';
+                    document.getElementById('municipio').innerHTML = '';
+                    document.getElementById('partido').value = '';
+                }
+            } catch (error) {
+                console.error('Logout fetch error:', error);
+            }
+        }
+
+        // Fetch departamentos
+        async function fetchDepartments() {
+            if (!isLoggedIn) return;
+            try {
+                const response = await fetch(`${apiUrl}/departments`, { credentials: 'include' });
+                const departments = await response.json();
+                const deptSelect = document.getElementById('deptSelect');
+                departments.forEach(dept => {
+                    const option = document.createElement('option');
+                    option.value = dept;
+                    option.textContent = dept;
+                    deptSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Fetch departments error:', error);
+            }
+        }
+
+        // Fetch municipalidades
+        async function fetchMunicipalities() {
+            if (!isLoggedIn) return;
+            const deptSelect = document.getElementById('deptSelect');
+            const deptName = deptSelect.value;
+            const muniSelect = document.getElementById('muniSelect');
+            muniSelect.innerHTML = '<option value="">Municipalidad</option>';
+            if (deptName) {
+                try {
+                    const response = await fetch(`${apiUrl}/municipalities?dept_name=${encodeURIComponent(deptName)}`, { credentials: 'include' });
+                    const municipalities = await response.json();
+                    municipalities.forEach(muni => {
+                        const option = document.createElement('option');
+                        option.value = muni;
+                        option.textContent = muni;
+                        muniSelect.appendChild(option);
+                    });
+                } catch (error) {
+                    console.error('Fetch municipalities error:', error);
+                }
+            }
+        }
+
+        // Fetch partidos
+        async function fetchParties() {
+            if (!isLoggedIn) return;
+            try {
+                const response = await fetch(`${apiUrl}/parties`, { credentials: 'include' });
+                const parties = await response.json();
+                const partSelect = document.getElementById('partSelect');
+                parties.forEach(part => {
+                    const option = document.createElement('option');
+                    option.value = part;
+                    option.textContent = part;
+                    partSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Fetch parties error:', error);
+            }
+        }
+
+        // FETCH RESULTS FROM ROUTE RESULTS
+        async function fetchResults() {
+            if (!isLoggedIn) return;
+            const deptSelect = document.getElementById('deptSelect');
+            const muniSelect = document.getElementById('muniSelect');
+            const partSelect = document.getElementById('partSelect');
+
+            const resultsDiv = document.getElementById('results');
+
+            const deptName = deptSelect.value;
+            const muniName = muniSelect.value;
+            const partName = partSelect.value;
+
+            if (!deptName || !muniName || !partName) {
+                resultsDiv.innerHTML = '<p class="error">Complete la selección</p>';
+                return;
+            }
+
+            resultsDiv.innerHTML = '<p class="loading">Ahorita voy...</p>';
+
+            try {
+                const response = await fetch(`${apiUrl}/results?dept_name=${encodeURIComponent(deptName)}&muni_name=${encodeURIComponent(muniName)}&part_name=${encodeURIComponent(partName)}`, { credentials: 'include' });
+               
+               
+               
+               
+               
+               
+                const data = await response.json();
+                if (data.error) {
+                    resultsDiv.innerHTML = `<p class="error">${data.error}</p>`;
+                } else {
+                    console.log('Raw data:', JSON.stringify(data.results, null, 2));
+                    let html = `<h2>${deptName}<br> ${muniName}<br> ${partName}</h2>`;
+                    html += '<table><tr><th>NAME</th><th>DESC</th><th>MUNI</th><th>D_LN</th><th>D_DI</th><th>D_PA</th><th>PRES</th><th>TEAM</th></tr>';
+                    const descriptors = ['EMPADRONADOS', 'VOTOS TOTALES', 'VOTOS RECIBIDOS', 'PARTICIPACIÓN', 'EFICIENCIA'];
+                    descriptors.forEach(desc => {
+                        const normalizedDesc = desc.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(' ', '_');
+                        html += `<tr><td>${partName}</td><td>${desc}</td>`;
+                        ['MUNI', 'D_LN', 'D_DI', 'D_PA', 'PRES', 'TEAM'].forEach(ballot => {
+                            let value = data.results[ballot] ? data.results[ballot][normalizedDesc] : 0;
+                            if (value === undefined || value === null) {
+                                console.warn(`Key ${normalizedDesc} not found for ${ballot}, defaulting to 0`);
+                                value = 0;
+                            }
+                            if (desc === 'PARTICIPACIÓN' || desc === 'EFICIENCIA') {
+                                console.log(`Rendering ${desc} for ${ballot}: ${value}% (raw: ${data.results[ballot] ? data.results[ballot][normalizedDesc] : 'undefined'})`);
+                                value = (value || 0).toFixed(2);
+                            }
+                            html += `<td>${value}${desc.includes('PARTICIPACIÓN') || desc.includes('EFICIENCIA') ? '%' : ''}</td>`;
+                        });
+                        html += '</tr>';
+                    });
+                    html += '</table>';
+                    resultsDiv.innerHTML = html;
+                }
+                } catch (error) {
+                console.error('Fetch results error:', error);
+                resultsDiv.innerHTML = '<p class="error">Error de la matriz</p>';
+            }
+        }
+
+        // Reset filters form
+        function resetFilters() {
+            document.getElementById('deptSelect').value = '';
+            document.getElementById('muniSelect').innerHTML = '<option value="">Municipalidad</option>';
+            document.getElementById('partSelect').value = '';
+            document.getElementById('results').innerHTML = '';
+        }
+
+        // Clear session on load
+        document.addEventListener('DOMContentLoaded', () => {
+            clearSession();
+
+            // Set municipalities filter to depend on departments filter
+            document.getElementById('deptSelect').addEventListener('change', fetchMunicipalities);
+        });
+    </script>
+</body>
+
+</html>
