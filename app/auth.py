@@ -1,7 +1,7 @@
 # auth.py
 from flask import Blueprint, request, jsonify, session, current_app
 import bcrypt
-from db import get_connection  # adjust to ".db" only if you're using a package
+from .db import get_connection  # adjust to ".db" only if you're using a package
 
 bp = Blueprint("auth", __name__, url_prefix="")
 
