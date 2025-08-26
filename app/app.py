@@ -41,16 +41,27 @@ def create_app():
             
             with get_connection(dsn) as conn:
                 with conn.cursor() as cur:
+                    # Test auth table
+                    cur.execute("SELECT COUNT(*) as count FROM users")
+                    users_count = cur.fetchone()["count"]
+                    
+                    # Test data tables
                     cur.execute("SELECT COUNT(*) as count FROM ubis")
                     ubis_count = cur.fetchone()["count"]
                     cur.execute("SELECT COUNT(*) as count FROM partido")
                     partido_count = cur.fetchone()["count"]
                     
+                    # Test auth query specifically
+                    cur.execute("SELECT username FROM users LIMIT 1")
+                    auth_test = cur.fetchone()
+                    
                 return {
                     "database_url_set": bool(dsn),
                     "connection": "success",
+                    "users_count": users_count,
                     "ubis_count": ubis_count,
-                    "partido_count": partido_count
+                    "partido_count": partido_count,
+                    "auth_test": auth_test["username"] if auth_test else None
                 }
         except Exception as e:
             return {"error": str(e)}, 500
