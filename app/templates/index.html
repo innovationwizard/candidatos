@@ -137,8 +137,11 @@
         async function fetchDepartments() {
             if (!isLoggedIn) return;
             try {
+                console.log('Fetching departments...');
                 const response = await fetch(`${apiUrl}/departments`, { credentials: 'include' });
+                console.log('Departments response status:', response.status);
                 const departments = await response.json();
+                console.log('Departments data:', departments);
                 const deptSelect = document.getElementById('deptSelect');
                 departments.forEach(dept => {
                     const option = document.createElement('option');
@@ -146,6 +149,7 @@
                     option.textContent = dept;
                     deptSelect.appendChild(option);
                 });
+                console.log(`Loaded ${departments.length} departments`);
             } catch (error) {
                 console.error('Fetch departments error:', error);
             }
@@ -178,8 +182,11 @@
         async function fetchParties() {
             if (!isLoggedIn) return;
             try {
+                console.log('Fetching parties...');
                 const response = await fetch(`${apiUrl}/parties`, { credentials: 'include' });
+                console.log('Parties response status:', response.status);
                 const parties = await response.json();
+                console.log('Parties data:', parties);
                 const partSelect = document.getElementById('partSelect');
                 parties.forEach(part => {
                     const option = document.createElement('option');
@@ -187,6 +194,7 @@
                     option.textContent = part;
                     partSelect.appendChild(option);
                 });
+                console.log(`Loaded ${parties.length} parties`);
             } catch (error) {
                 console.error('Fetch parties error:', error);
             }
