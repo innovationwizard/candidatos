@@ -30,6 +30,31 @@ def create_app():
     def healthz():
         return {"ok": True}
 
+    @app.get("/debug")
+    def debug():
+        """Debug endpoint to check database connection"""
+        try:
+            from .db import get_connection
+            dsn = app.config["DATABASE_URL"]
+            if not dsn:
+                return {"error": "DATABASE_URL not set"}, 500
+            
+            with get_connection(dsn) as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT COUNT(*) as count FROM ubis")
+                    ubis_count = cur.fetchone()["count"]
+                    cur.execute("SELECT COUNT(*) as count FROM partido")
+                    partido_count = cur.fetchone()["count"]
+                    
+                return {
+                    "database_url_set": bool(dsn),
+                    "connection": "success",
+                    "ubis_count": ubis_count,
+                    "partido_count": partido_count
+                }
+        except Exception as e:
+            return {"error": str(e)}, 500
+
     @app.get("/")
     def index():
         return render_template("index.html")

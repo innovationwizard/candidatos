@@ -1,0 +1,11 @@
+# Database Configuration
+# Replace with your actual PostgreSQL connection string
+DATABASE_URL=postgresql://username:password@localhost:5432/database_name
+
+# Flask Configuration
+FLASK_ENV=development
+SECRET_KEY=your-secret-key-here
+SESSION_COOKIE_SECURE=false
+
+# CORS Configuration
+CORS_ALLOW_ORIGINS=*
