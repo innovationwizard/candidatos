@@ -42,6 +42,9 @@ body {
             font-family: 'Courier New', Courier, monospace;
             margin-right: 10px;
         }
+        select {
+            min-width: 200px;
+        }
         button {
             cursor: pointer;
         }
