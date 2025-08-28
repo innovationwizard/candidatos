@@ -43,7 +43,10 @@ body {
             margin-right: 10px;
         }
         select {
-            min-width: 350px;
+            min-width: 330px;
+        }
+        .filters p {
+            margin: 5px 0;
         }
         button {
             cursor: pointer;
