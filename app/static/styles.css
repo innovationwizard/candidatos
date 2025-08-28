@@ -43,7 +43,7 @@ body {
             margin-right: 10px;
         }
         select {
-            min-width: 200px;
+            min-width: 300px;
         }
         button {
             cursor: pointer;
